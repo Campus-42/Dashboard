@@ -6,7 +6,7 @@ Built using [Create React App](https://github.com/facebook/create-react-app), Ty
 
 In the project directory, you can run:
 
-### `get started``
+### `get started`
 
 Build:
 1. cd campus42/dashboard
