@@ -1,0 +1,15 @@
+{
+  "short_name": "Campus42 Admin",
+  "name": "Campus42 Admin Dashboard",
+  "icons": [
+    {
+      "src": "assets/img/light-logo.png",
+      "sizes": "5001x5006",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
