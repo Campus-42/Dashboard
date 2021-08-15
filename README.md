@@ -6,18 +6,6 @@ Built using [Create React App](https://github.com/facebook/create-react-app), Ty
 
 In the project directory, you can run:
 
-### `get started`
-
-Build:
-1. cd campus42/dashboard
-2. yarn install && yarn run build
-
-Firebase CLI:
-1. cd campus42
-2. firebase target:apply hosting dashboard campus42-dashboard
-3. firebase target:apply hosting website campus42
-4. firebase deploy --only hosting
-
 ### `yarn start`
 
 Runs the app in the development mode.\

@@ -1,8 +1,15 @@
 import React, { useCallback, useContext, useEffect, useState } from "react";
+import UserInfoContext from "../contexts/UserInfoContext";
+import { useRecoilValue } from "recoil";
+import { campusIdState } from "../state/campusIdState";
+import { Channel } from "../interfaces/Channel";
 import usePaginatedState from "../hooks/usePaginatedState";
+import { collections } from "../services/firebaseApp";
 import LoadingOverlay from "../components/Functional/LoadingOverlay";
+import Header from "../components/Headers/Header";
 import {
   Badge,
+  Button,
   Card,
   CardFooter,
   CardHeader,
@@ -24,132 +31,93 @@ import {
   Table,
   UncontrolledDropdown,
 } from "reactstrap";
-import Header from "../components/Headers/Header";
-
-import { collections } from "../services/firebaseApp";
-import { Event } from "../interfaces/Event";
-import { Blog } from "../interfaces/Blog";
-import { PermLevel } from "../interfaces/UserInfo";
 import { HasPermissionLevel } from "../services/permissions";
-import UserInfoContext from "../contexts/UserInfoContext";
-import { useRecoilValue } from "recoil";
-import { campusIdState } from "../state/campusIdState";
+import { PermLevel, UserInfo } from "../interfaces/UserInfo";
+import CreateChannelModal from "../components/Modals/CreateChannelModal";
+import SendChannelMsgModal from "../components/Modals/SendChannelMsgModal";
 
-enum EntryType {
-  Event = "Event",
-  Blog = "Blog",
-}
-
-interface TableEntry {
-  title: string;
-  description: string;
-  timestamp: Date;
-  society_name: string;
-
-  price?: string;
-
-  _id?: string;
-  visible?: boolean;
-
-  entryType: EntryType;
-}
-
-const Events = () => {
+const Channels = () => {
   let userInfo = useContext(UserInfoContext);
   const campusId = useRecoilValue(campusIdState);
 
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState<boolean>(true);
 
-  const [entries, setEntries] = useState<Array<TableEntry>>([]);
+  const [entries, setEntries] = useState<Array<Channel>>([]);
+
+  const [users, setUsers] = useState<Array<UserInfo>>([]);
 
   const [
     pagination,
     setPagination,
-    events,
-    setEvents,
+    channels,
+    setChannels,
     pages,
-  ] = usePaginatedState<TableEntry>();
+  ] = usePaginatedState<Channel>();
 
-  const loadEvents = useCallback(async () => {
+  const loadChannels = useCallback(async () => {
     setLoading(true);
     if (!campusId) return;
-    let snapshot = await collections.events(campusId).get();
-    let blogSnapshot = await collections.blogs(campusId).get();
-    if (snapshot.empty) return setLoading(false);
+    let channelSnapshot = await collections.channels(campusId).get();
+    if (channelSnapshot.empty) return setLoading(false);
+
     setEntries(
-      [
-        ...snapshot.docs.map((doc) => {
-          let data = doc.data() as Event;
-          return {
-            title: data.title,
-            description: data.description.slice(0, 40),
-            timestamp: data.edit_log
-              ?.sort(
-                (logA, logB) => logB.date.toMillis() - logA.date.toMillis()
-              )[0]
-              .date.toDate(),
-            society_name: data.society_name,
-            entryType: EntryType.Event,
+      channelSnapshot.docs.map(
+        (doc) =>
+          ({
+            ...doc.data(),
             _id: doc.id,
-
-            visible: data.visible,
-          };
-        }),
-        ...blogSnapshot.docs.map((doc) => {
-          let data = doc.data() as Blog;
-          return {
-            title: data.su_title,
-            timestamp: data.edit_log
-              ?.sort(
-                (logA, logB) => logB.date.toMillis() - logA.date.toMillis()
-              )[0]
-              .date.toDate(),
-            description: data.blog_content
-              .filter((content) => content.type === "Text")
-              .map((content) => content.value)
-              .join("\n")
-              .slice(0, 40),
-            society_name: data.society_name,
-            entryType: EntryType.Blog,
-
-            _id: doc.id,
-            visible: data.visible,
-          } as TableEntry;
-        }),
-      ].sort((a, b) =>
-        b.timestamp?.toISOString() > a.timestamp?.toISOString() ? 1 : -1
+          } as Channel)
       )
     );
     setLoading(false);
-  }, [setEntries, campusId]);
+  }, [setLoading, campusId, setEntries]);
+
+  const loadUsers = useCallback(async () => {
+    if (!campusId) return;
+    let snapshot = await collections.users(campusId).get();
+    if (snapshot.empty) return;
+    setUsers(
+      snapshot.docs.map((doc) => ({
+        ...doc.data(),
+        _id: doc.id,
+      })) as UserInfo[]
+    );
+  }, [campusId]);
 
   useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+    loadChannels();
+    loadUsers();
+  }, [loadChannels, loadUsers]);
 
   useEffect(() => {
-    setEvents(
+    setChannels(
       entries.filter((event) =>
         Object.values(event).some((val) =>
           val?.toString().toLowerCase().includes(searchText.toLowerCase())
         )
       )
     );
-  }, [entries, setEvents, searchText]);
+  }, [entries, setChannels, searchText]);
+
+  const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
+  const [messageModalOpen, setMessageModalOpen] = useState<string | false>(
+    false
+  );
+
+  const [selectedChannel, setSelectedChannel] = useState<Channel>();
 
   return (
     <>
       {loading && <LoadingOverlay />}
       <Header />
-      {/* Page content */}
+
       <Container className="mt--7" fluid>
-        {/* Table */}
         <Row>
           <div className="col">
             <Card className="shadow">
               <CardHeader className="border-0">
-                <h3 className="mb-0">Events</h3>
+                <h3 className="mb-0">Channels</h3>
               </CardHeader>
               <Form className="mr-3 d-none d-md-flex ml-lg-auto">
                 <FormGroup className="mb-0">
@@ -166,16 +134,27 @@ const Events = () => {
                     />
                   </InputGroup>
                 </FormGroup>
+                <Button
+                  className="btn-icon btn-3"
+                  color="primary"
+                  type="button"
+                  onClick={() => setCreateModalOpen(true)}
+                >
+                  <span className="btn-inner--icon">
+                    <i className="fa fa-plus" />
+                  </span>
+                  <span className="btn-inner--text">Create</span>
+                </Button>
               </Form>
               <br />
               <Table className="align-items-center table-flush" responsive>
                 <thead className="thead-light">
                   <tr>
-                    <th scope="col">Title</th>
+                    <th scope="col">Name</th>
                     <th scope="col">Description</th>
                     <th scope="col">Timestamp</th>
-                    <th scope="col">Price</th>
-                    <th scope="col">Society</th>
+                    {/*<th scope="col">Price</th>*/}
+                    {/*<th scope="col">Society</th>*/}
                     {/*<th scope="col">Permissions</th>*/}
                     {/*<th scope="col">Exec members</th>*/}
                     {/*<th scope="col">Completion</th>*/}
@@ -183,8 +162,8 @@ const Events = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {events.map((event) => (
-                    <tr key={event._id}>
+                  {channels.map((channel) => (
+                    <tr key={channel.name}>
                       <th scope="row">
                         <Media className="align-items-center">
                           {/*<a*/}
@@ -202,27 +181,28 @@ const Events = () => {
                           {/*</a>*/}
                           <Media>
                             <span className="mb-0 text-sm">
-                              {event.title?.slice(0, 30)}{" "}
-                              <Badge
-                                color={
-                                  event.entryType === EntryType.Event
-                                    ? "info"
-                                    : "primary"
-                                }
-                              >
-                                {event.entryType}
-                              </Badge>
-                              {event.visible === false && (
-                                <Badge color={"danger"}>Blocked</Badge>
+                              {channel.name?.slice(0, 30)} {/*<Badge*/}
+                              {/*  color={*/}
+                              {/*    event.entryType === EntryType.Event*/}
+                              {/*      ? "info"*/}
+                              {/*      : "primary"*/}
+                              {/*  }*/}
+                              {/*>*/}
+                              {/*  {event.entryType}*/}
+                              {/*</Badge>*/}
+                              {channel.disabled && (
+                                <Badge color={"danger"}>Disabled</Badge>
                               )}
                             </span>
                           </Media>
                         </Media>
                       </th>
-                      <td>{event.description}...</td>
-                      <td>{event.timestamp?.toString().split("G")[0]}</td>
-                      <td>£{event.price || 0}</td>
-                      <td>{event.society_name.slice(0, 30)}</td>
+                      <td>{channel.description.slice(0, 40)}...</td>
+                      <td>
+                        {channel.created?.toDate().toString().split("G")[0]}
+                      </td>
+                      {/*<td>£{event.price || 0}</td>*/}
+                      {/*<td>{event.society_name.slice(0, 30)}</td>*/}
                       {/*<td>*/}
                       {/*  {getEnumKeyByEnumValue(*/}
                       {/*    PermLevel,*/}
@@ -319,48 +299,72 @@ const Events = () => {
                             <i className="fas fa-ellipsis-v" />
                           </DropdownToggle>
                           <DropdownMenu className="dropdown-menu-arrow" right>
-                            {/*<DropdownItem*/}
-                            {/*  onClick={(e) => setPermissionsModal(user)}*/}
-                            {/*>*/}
-                            {/*  Set Permissions*/}
-                            {/*</DropdownItem>*/}
-                            {/*<DropdownItem*/}
-                            {/*  href="#/"*/}
-                            {/*  onClick={(e) => e.preventDefault()}*/}
-                            {/*>*/}
-                            {/*  Another action*/}
-                            {/*</DropdownItem>*/}
-                            {HasPermissionLevel(userInfo, PermLevel.Admin) && (
+                            {HasPermissionLevel(
+                              userInfo,
+                              PermLevel.Moderator
+                            ) && (
                               <DropdownItem
-                                onClick={async () => {
-                                  setLoading(true);
-                                  switch (event.entryType) {
-                                    case EntryType.Blog:
-                                      await collections
-                                        .blogs(campusId!)
-                                        .doc(event._id)
-                                        .update({
-                                          visible: false,
-                                        });
-                                      break;
-                                    case EntryType.Event:
-                                      await collections
-                                        .events(campusId!)
-                                        .doc(event._id)
-                                        .update({
-                                          visible: false,
-                                        });
-                                      break;
-                                    default:
-                                      break;
-                                  }
-                                  await loadEvents();
-                                  setLoading(false);
-                                }}
+                                onClick={(e) =>
+                                  setMessageModalOpen(channel._id)
+                                }
                               >
-                                Block
+                                Send message
                               </DropdownItem>
                             )}
+
+                            {HasPermissionLevel(
+                              userInfo,
+                              PermLevel.Moderator
+                            ) && (
+                              <DropdownItem
+                                onClick={(e) => {
+                                  setSelectedChannel(channel);
+                                  setCreateModalOpen(true);
+                                }}
+                              >
+                                Edit
+                              </DropdownItem>
+                            )}
+
+                            {HasPermissionLevel(
+                              userInfo,
+                              PermLevel.Moderator
+                            ) &&
+                              !channel.disabled && (
+                                <DropdownItem
+                                  onClick={async (e) => {
+                                    await collections
+                                      .channels(campusId!)
+                                      .doc(channel._id)
+                                      .update({
+                                        disabled: true,
+                                      });
+                                    await loadChannels();
+                                  }}
+                                >
+                                  Disable
+                                </DropdownItem>
+                              )}
+
+                            {HasPermissionLevel(
+                              userInfo,
+                              PermLevel.Moderator
+                            ) &&
+                              channel.disabled && (
+                                <DropdownItem
+                                  onClick={async (e) => {
+                                    await collections
+                                      .channels(campusId!)
+                                      .doc(channel._id)
+                                      .update({
+                                        disabled: false,
+                                      });
+                                    await loadChannels();
+                                  }}
+                                >
+                                  Enable
+                                </DropdownItem>
+                              )}
                           </DropdownMenu>
                         </UncontrolledDropdown>
                       </td>
@@ -434,12 +438,29 @@ const Events = () => {
             </Card>
           </div>
         </Row>
-
-        {/* Dark table */}
-        <Row className="mt-5"></Row>
       </Container>
+
+      {createModalOpen && (
+        <CreateChannelModal
+          users={users}
+          show={createModalOpen}
+          onClose={(refresh: boolean) => {
+            setCreateModalOpen(false);
+            setSelectedChannel(undefined);
+            refresh && loadChannels();
+          }}
+          existingChannel={selectedChannel}
+        />
+      )}
+
+      {messageModalOpen && (
+        <SendChannelMsgModal
+          channelId={messageModalOpen}
+          onClose={() => setMessageModalOpen(false)}
+        />
+      )}
     </>
   );
 };
 
-export default Events;
+export default Channels;

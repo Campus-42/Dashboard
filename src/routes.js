@@ -26,6 +26,7 @@ import Societies from "views/Societies";
 import Users from "views/Users";
 import Events from "views/Events";
 import Reports from "views/Reports";
+import Channels from "views/Channels";
 
 var routes = [
   // {
@@ -61,6 +62,13 @@ var routes = [
     name: "Reports",
     icon: "fa fa-flag text-red",
     component: Reports,
+    layout: "/admin",
+  },
+  {
+    path: "/channels",
+    name: "Channels",
+    icon: "fa fa-bullhorn text-yellow",
+    component: Channels,
     layout: "/admin",
   },
   // {

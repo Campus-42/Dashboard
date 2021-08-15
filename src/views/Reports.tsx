@@ -81,7 +81,7 @@ const Reports = () => {
   useEffect(() => {
     loadReports();
     loadUsers();
-  }, [loadReports]);
+  }, [loadReports, loadUsers]);
 
   useEffect(() => {
     setReports(

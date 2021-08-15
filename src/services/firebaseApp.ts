@@ -24,6 +24,11 @@ export const collections: {
   events: (campus: string) => firebase.firestore.CollectionReference;
   reports: (campus: string) => firebase.firestore.CollectionReference;
   users: (campus: string) => firebase.firestore.Query;
+  channels: (campus: string) => firebase.firestore.CollectionReference;
+  channelMessages: (
+    campus: string,
+    channel: string
+  ) => firebase.firestore.CollectionReference;
 } = {
   societies: (campus) => firestore.collection(`campuses/${campus}/societies`),
   blogs: (campus) => firestore.collection(`campuses/${campus}/blogs`),
@@ -32,6 +37,9 @@ export const collections: {
     firestore.collection(`campuses/${campus}/reports_of_behaviour`),
   users: (campus) =>
     firestore.collection(`users`).where("campus", "==", campus),
+  channels: (campus) => firestore.collection(`campuses/${campus}/channels`),
+  channelMessages: (campus, channel) =>
+    firestore.collection(`campuses/${campus}/channels/${channel}/messages`),
 };
 
 (window as any).firebaseApp = firebaseApp;
