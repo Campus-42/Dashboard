@@ -1,0 +1,12 @@
+{
+  "projects": {},
+  "targets": {
+    "campus42": {
+      "hosting": {
+        "dashboard": [
+          "campus42-dashboard"
+        ]
+      }
+    }
+  }
+}
