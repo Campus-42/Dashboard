@@ -34,6 +34,7 @@ import { HasPermissionLevel } from "../services/permissions";
 import UserInfoContext from "../contexts/UserInfoContext";
 import { useRecoilValue } from "recoil";
 import { campusIdState } from "../state/campusIdState";
+import moment from "moment";
 
 enum EntryType {
   Event = "Event",
@@ -81,14 +82,27 @@ const Events = () => {
       [
         ...snapshot.docs.map((doc) => {
           let data = doc.data() as Event;
+          console.log(data);
+
+          let createDate = data.edit_log?.sort((logA, logB) => {
+            let a =
+              typeof logA?.date === "object"
+                ? logA?.date?.toMillis()
+                : moment(logA?.date, "D MMMM YYYY at HH:mm:ss").date();
+            let b =
+              typeof logB?.date === "object"
+                ? logB?.date?.toMillis()
+                : moment(logB?.date, "D MMMM YYYY at HH:mm:ss").date();
+            return a - b;
+          })[0]?.date;
+
           return {
             title: data.title,
             description: data.description.slice(0, 40),
-            timestamp: data.edit_log
-              ?.sort(
-                (logA, logB) => logB.date.toMillis() - logA.date.toMillis()
-              )[0]
-              .date.toDate(),
+            timestamp:
+              typeof createDate === "object"
+                ? createDate.toDate()
+                : moment(createDate, "D MMMM YYYY at HH:mm:ss").toDate(),
             society_name: data.society_name,
             entryType: EntryType.Event,
             _id: doc.id,
@@ -98,13 +112,26 @@ const Events = () => {
         }),
         ...blogSnapshot.docs.map((doc) => {
           let data = doc.data() as Blog;
+          console.log(data);
+
+          let createDate = data.edit_log?.sort((logA, logB) => {
+            let a =
+              typeof logA?.date === "object"
+                ? logA?.date?.toMillis()
+                : moment(logA?.date, "D MMMM YYYY at HH:mm:ss").date();
+            let b =
+              typeof logB?.date === "object"
+                ? logB?.date?.toMillis()
+                : moment(logB?.date, "D MMMM YYYY at HH:mm:ss").date();
+            return a - b;
+          })[0]?.date;
+
           return {
             title: data.su_title,
-            timestamp: data.edit_log
-              ?.sort(
-                (logA, logB) => logB.date.toMillis() - logA.date.toMillis()
-              )[0]
-              .date.toDate(),
+            timestamp:
+              typeof createDate === "object"
+                ? createDate.toDate()
+                : moment(createDate, "D MMMM YYYY at HH:mm:ss").toDate(),
             description: data.blog_content
               .filter((content) => content.type === "Text")
               .map((content) => content.value)
@@ -117,9 +144,10 @@ const Events = () => {
             visible: data.visible,
           } as TableEntry;
         }),
-      ].sort((a, b) =>
-        b.timestamp?.toISOString() > a.timestamp?.toISOString() ? 1 : -1
-      )
+      ].sort((a, b) => {
+        console.log(b, a);
+        return b.timestamp > a.timestamp ? 1 : -1;
+      })
     );
     setLoading(false);
   }, [setEntries, campusId]);

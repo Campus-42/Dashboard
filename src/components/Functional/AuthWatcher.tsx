@@ -45,6 +45,7 @@ const AuthWatcher = (
         props.location.pathname === "/") &&
       userInfo?.perm_level !== PermLevel.Member
     ) {
+      console.log("Redirecting to societies");
       props.history.push("/admin/societies");
       console.log("Logged in");
     }

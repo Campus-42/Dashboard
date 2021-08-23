@@ -2,7 +2,7 @@
   "hosting": [
     {
       "target": "dashboard",
-      "public": "build",
+      "public": "campus42/dashboard/build",
       "ignore": [
         "firebase.json",
         "**/.*",

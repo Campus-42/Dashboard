@@ -69,15 +69,15 @@ function App() {
         <Switch>
           <Route path="/auth" render={(props) => <AuthLayout {...props} />} />
           {userInfo ? (
-            <>
+            <Switch>
               <Route
                 path="/admin"
                 render={(props) => (
                   <AdminLayout {...props} userInfo={userInfo} />
                 )}
               />
-              <Redirect from="/" to="/admin/index" />
-            </>
+              <Redirect from="/" to="/admin/societies" />
+            </Switch>
           ) : (
             <LoadingOverlay />
           )}

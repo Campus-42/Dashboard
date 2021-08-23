@@ -1,5 +1,6 @@
-import React, { FC, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import {
+  Alert,
   Button,
   Card,
   CardBody,
@@ -26,12 +27,51 @@ import { Channel } from "../../interfaces/Channel";
 import { useRecoilValue } from "recoil";
 import { campusIdState } from "../../state/campusIdState";
 
+// Import React FilePond
+import { FilePond, registerPlugin } from "react-filepond";
+
+// Import FilePond styles
+import "filepond/dist/filepond.min.css";
+import { FilePondFile } from "filepond";
+
+import FilePondPluginImagePreview from "filepond-plugin-image-preview";
+import "filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css";
+registerPlugin(FilePondPluginImagePreview);
+
 interface IProps {
   show: boolean;
   onClose: Function;
   users: UserInfo[];
 
   existingChannel?: Channel;
+}
+
+function uuidv4() {
+  // @ts-ignore
+  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
+    (
+      c ^
+      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))
+    ).toString(16)
+  );
+}
+
+async function uploadImage(campus: string, image: FilePondFile) {
+  let uuid = uuidv4();
+
+  let imgRef = firebaseApp.storage().ref(`campuses/${campus}/channels/${uuid}`);
+
+  let snapshot = await imgRef.put(await image.file.arrayBuffer(), {
+    contentType: image.fileType,
+    customMetadata: image.getMetadata(),
+  });
+
+  return snapshot.ref.getDownloadURL();
+}
+
+async function getFilePondObj(imgUrl: string) {
+  const res = await fetch(imgUrl);
+  return res.blob();
 }
 
 const CreateChannelModal: FC<IProps> = ({
@@ -62,7 +102,32 @@ const CreateChannelModal: FC<IProps> = ({
 
   const [isSubmitting, setSubmitting] = useState(false);
 
+  const [images, setImages] = useState<unknown[]>(
+    existingChannel?.image ? [] : []
+  );
+
+  const [imgUpdated, setImgUpdated] = useState(false);
+
+  const [error, setError] = useState<string | false>(false);
+
+  useEffect(() => {
+    async function checkImages() {
+      if (existingChannel?.image) {
+        setImages([await getFilePondObj(existingChannel.image)]);
+      }
+    }
+    checkImages();
+  }, [existingChannel]);
+
   async function submitForm() {
+    if (!name) return setError("name");
+
+    if (!description) return setError("description");
+
+    if (images.length < 1) return setError("image");
+
+    if (admins.length < 1) return setError("at least 1 admin required");
+
     setSubmitting(true);
 
     if (!existingChannel) {
@@ -70,7 +135,7 @@ const CreateChannelModal: FC<IProps> = ({
         .functions()
         .httpsCallable("createChannel");
 
-      const result = await createChannel({
+      let channelData: Record<string, any> = {
         campusKey: campusId,
         name,
         description,
@@ -80,7 +145,16 @@ const CreateChannelModal: FC<IProps> = ({
         canRespond,
 
         creator: firebaseApp.auth().currentUser?.uid,
-      });
+      };
+
+      if (images.length > 0) {
+        channelData.image = await uploadImage(
+          campusId!,
+          images[0] as FilePondFile
+        );
+      }
+
+      const result = await createChannel(channelData);
       console.log(result);
     } else {
       await collections.channels(campusId!).doc(existingChannel._id).update({
@@ -90,6 +164,26 @@ const CreateChannelModal: FC<IProps> = ({
         admins,
         can_respond: canRespond,
       });
+
+      if (imgUpdated) {
+        if (images.length === 0) {
+          // TODO: Delete image from storage
+          await collections
+            .channels(campusId!)
+            .doc(existingChannel._id)
+            .update({
+              image: null,
+            });
+        } else {
+          // Update image
+          await collections
+            .channels(campusId!)
+            .doc(existingChannel._id)
+            .update({
+              image: await uploadImage(campusId!, images[0] as FilePondFile),
+            });
+        }
+      }
     }
 
     setSubmitting(false);
@@ -104,7 +198,7 @@ const CreateChannelModal: FC<IProps> = ({
     >
       <div className="modal-header">
         <h5 className="modal-title" id="exampleModalLabel">
-          {existingChannel ? "Update channel" : "Create channel"}
+          {existingChannel ? "Edit channel" : "Create channel"}
         </h5>
         <button
           aria-label="Close"
@@ -117,9 +211,15 @@ const CreateChannelModal: FC<IProps> = ({
         </button>
       </div>
       <div className="modal-body">
+        {error && (
+          <Alert color="danger">
+            <strong>Validation error.</strong> One or more missing fields:{" "}
+            {error}
+          </Alert>
+        )}
         <Form>
           <FormGroup>
-            <Label for="name">Name</Label>
+            <Label for="name">Name *</Label>
             <Col>
               <Input
                 type="text"
@@ -132,7 +232,7 @@ const CreateChannelModal: FC<IProps> = ({
             </Col>
           </FormGroup>
           <FormGroup>
-            <Label for="description">Description</Label>
+            <Label for="description">Description *</Label>
             <Col>
               <Input
                 type="text"
@@ -159,6 +259,23 @@ const CreateChannelModal: FC<IProps> = ({
           </div>
 
           <br />
+
+          <Label for="images">Image *</Label>
+
+          <FilePond
+            // @ts-ignore
+            files={images}
+            onupdatefiles={async (files) => {
+              setImgUpdated(true);
+              if (files.length === 0) return setImages([]);
+
+              setImages(files);
+            }}
+            allowMultiple={false}
+            maxFiles={1}
+            name="images"
+            labelIdle='Drag & Drop your files or <span class="filepond--label-action">Browse</span>'
+          />
 
           <FormGroup>
             <Label>Admins</Label>

@@ -1,10 +1,11 @@
-import React, { FC, useCallback, useEffect, useState } from "react";
+import React, { FC, useCallback, useContext, useEffect, useState } from "react";
 import { Button, Col, Input, Modal, Spinner } from "reactstrap";
 import firebaseApp, { collections } from "../../services/firebaseApp";
 import { Message } from "react-chat-ui";
 import { useRecoilValue } from "recoil";
 import { campusIdState } from "../../state/campusIdState";
 import CustomChatFeed from "components/Chat/CustomChatFeed";
+import UserInfoContext from "../../contexts/UserInfoContext";
 
 interface IProps {
   channelId: string;
@@ -13,6 +14,7 @@ interface IProps {
 
 const SendChannelMsgModal: FC<IProps> = ({ channelId, onClose }) => {
   const campusId = useRecoilValue(campusIdState);
+  const userInfo = useContext(UserInfoContext);
 
   const [message, setMessage] = useState("");
 
@@ -53,9 +55,11 @@ const SendChannelMsgModal: FC<IProps> = ({ channelId, onClose }) => {
       campusKey: campusId,
       conversationId: channelId,
       text: message,
-      creator: "ADMIN",
-      creator_name: "ADMIN",
+      creator: userInfo?._id,
+      creator_name: `${userInfo?.first_name} ${userInfo?.last_name}`,
       __type: "user",
+
+      device_token: false,
 
       timestamp: new Date(Date.now()),
     });
@@ -71,6 +75,8 @@ const SendChannelMsgModal: FC<IProps> = ({ channelId, onClose }) => {
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  if (!userInfo) return null;
 
   return (
     <Modal
