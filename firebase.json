@@ -1,8 +1,8 @@
 {
   "hosting": [
     {
-      "target": "dashboard",
-      "public": "campus42/dashboard/build",
+      "target": "Dashboard",
+      "public": "Dashboard/build",
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -19,21 +19,6 @@
         },
         {
           "source": "!/@(js|css)/**",
-          "destination": "/index.html"
-        }
-      ]
-    },
-    {
-      "target": "website",
-      "public": "campus42/website",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "**",
           "destination": "/index.html"
         }
       ]
